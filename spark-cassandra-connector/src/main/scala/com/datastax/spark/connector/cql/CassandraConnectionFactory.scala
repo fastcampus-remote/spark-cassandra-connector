@@ -6,7 +6,7 @@ import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import org.apache.commons.io.IOUtils
 import org.apache.spark.SparkConf
-import com.datastax.driver.core.policies.ExponentialReconnectionPolicy
+import com.datastax.driver.core.policies.{DCAwareRoundRobinPolicy, ExponentialReconnectionPolicy}
 import com.datastax.driver.core._
 import com.datastax.spark.connector.cql.CassandraConnectorConf.CassandraSSLConf
 import com.datastax.spark.connector.rdd.ReadConf
@@ -40,6 +40,12 @@ object DefaultConnectionFactory extends CassandraConnectionFactory {
       .setConnectTimeoutMillis(conf.connectTimeoutMillis)
       .setReadTimeoutMillis(conf.readTimeoutMillis)
 
+    val policyBuilder = DCAwareRoundRobinPolicy.builder()
+    conf.localDC match {
+      case Some(localDC) =>
+        policyBuilder.withLocalDc(localDC)
+    }
+ 
     val builder = Cluster.builder()
       .addContactPoints(conf.hosts.toSeq: _*)
       .withPort(conf.port)
@@ -49,6 +55,7 @@ object DefaultConnectionFactory extends CassandraConnectionFactory {
         new ExponentialReconnectionPolicy(conf.minReconnectionDelayMillis, conf.maxReconnectionDelayMillis))
 //       .withLoadBalancingPolicy(
 //         new LocalNodeFirstLoadBalancingPolicy(conf.hosts, conf.localDC))
+      .withLoadBalancingPolicy(policyBuilder.build())
       .withAuthProvider(conf.authConf.authProvider)
       .withSocketOptions(options)
       .withCompression(conf.compression)
