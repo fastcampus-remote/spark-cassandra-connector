@@ -41,10 +41,7 @@ object DefaultConnectionFactory extends CassandraConnectionFactory {
       .setReadTimeoutMillis(conf.readTimeoutMillis)
 
     val policyBuilder = DCAwareRoundRobinPolicy.builder()
-    conf.localDC match {
-      case Some(localDC) =>
-        policyBuilder.withLocalDc(localDC)
-    }
+    if(conf.localDC.isDefined) policyBuilder.withLocalDc(conf.localDC.get)
  
     val builder = Cluster.builder()
       .addContactPoints(conf.hosts.toSeq: _*)
